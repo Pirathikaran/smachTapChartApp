@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Grid from "@mui/material/Grid";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Typography, Alert, AlertTitle } from "@mui/material";
 import CategorySelect from "./CategorySelect";
 import MultiSelect from "./MultiSelectProducts";
 import { getCategories, getProductsByCategory } from "../api/categories";
@@ -12,77 +12,66 @@ import BarChart from "./BarChart";
 import { Category } from "../types/Categories";
 
 const Dashboard = () => {
-  const [selectCategory, setSelectCategory] = useState<string>("");
-  const [dropdownMenu, setDropdownMenu] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<ResponseFromProducts>();
-  const [selectedProductsName, setSelectedProductsNames] = useState<string[]>(
+  const [selectedProductNames, setSelectedProductNames] = useState<string[]>(
     []
   );
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
-  const [showColumnChart, setColumnChart] = useState(false);
   const [showProductsPie, setShowProductsPie] = useState(false);
-  const [isReportBtnDisable, setIsReportBtnDisable] = useState(false);
+  const [isReportButtonDisabled, setIsReportButtonDisabled] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const data = await getCategories();
-        setDropdownMenu(data);
+        setCategories(data);
       } catch (error) {
-        console.error("Error fetching categories:", error);
+        setError("Error fetching categories");
       }
     };
-
     fetchCategories();
   }, []);
 
   useEffect(() => {
-    const fetchProductsByCategory = async () => {
+    const fetchProducts = async () => {
+      if (!selectedCategory) return;
       try {
-        if (selectCategory) {
-          const data = await getProductsByCategory(selectCategory);
-          setProducts(data);
-        }
+        const data = await getProductsByCategory(selectedCategory);
+        setProducts(data);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        setError("Error fetching products");
       }
     };
+    fetchProducts();
+  }, [selectedCategory]);
 
-    fetchProductsByCategory();
-  }, [selectCategory]);
+  const handleCategorySelect = useCallback((category: string) => {
+    setSelectedCategory(category);
+    setShowProductsPie(false);
+    setIsReportButtonDisabled(false);
+    setError(null);
+  }, []);
 
-  const handleCategorySelect = (category: string) => {
-    setSelectCategory(category);
-    if (showProductsPie) {
-      setShowProductsPie(false);
-    }
-    if (isReportBtnDisable) {
-      setIsReportBtnDisable(!isReportBtnDisable);
-    }
-  };
-
-  const handleProductsSelect = (productNames: string[]) => {
-    setSelectedProductsNames(productNames);
-    if (isReportBtnDisable) {
-      setIsReportBtnDisable(!isReportBtnDisable);
-    }
-  };
+  const handleProductsSelect = useCallback((productNames: string[]) => {
+    setSelectedProductNames(productNames);
+    setIsReportButtonDisabled(false);
+  }, []);
 
   const handleFilterClear = () => {
-    setSelectCategory("");
-    setColumnChart(false);
+    setSelectedCategory("");
     setShowProductsPie(false);
-    setIsReportBtnDisable(false);
+    setIsReportButtonDisabled(false);
+    setError(null);
   };
 
   const handleReportGeneration = () => {
-    const response = findSelectProducts(products, selectedProductsName);
-    setSelectedProducts(response);
-    if (!showProductsPie) {
-      setShowProductsPie(!showProductsPie);
-    }
-    setColumnChart(!showColumnChart);
-    setIsReportBtnDisable(!isReportBtnDisable);
+    const selected = findSelectProducts(products, selectedProductNames);
+    setSelectedProducts(selected);
+    setShowProductsPie(true);
+    setIsReportButtonDisabled(true);
   };
 
   return (
@@ -134,18 +123,18 @@ const Dashboard = () => {
           >
             <CategorySelect
               setSelectCategoryfunc={handleCategorySelect}
-              categoryList={dropdownMenu}
-              selectCategory={selectCategory}
+              categoryList={categories}
+              selectCategory={selectedCategory}
             />
             <MultiSelect
-              isCategorySelected={selectCategory.length !== 0}
+              isCategorySelected={!!selectedCategory}
               products={products}
               setSelectedProductfunc={handleProductsSelect}
-              category={selectCategory}
+              category={selectedCategory}
             />
             <Button
               variant="contained"
-              disabled={!selectCategory || isReportBtnDisable}
+              disabled={!selectedCategory || isReportButtonDisabled}
               onClick={handleReportGeneration}
             >
               Run Report
@@ -155,22 +144,31 @@ const Dashboard = () => {
 
         {/* Main Content */}
         <Grid item xs={12} sm={8} sx={{ marginTop: "10px" }}>
-          {!selectCategory && <AllCategoriesPieChart />}
-          {selectCategory && !showProductsPie && (
-            <SelectedCategoryPieChart
-              pieData={products}
-              title={selectCategory}
-            />
-          )}
-          {showProductsPie && (
-            <BarChart
-              products={
-                selectedProducts.length !== 0
-                  ? selectedProducts
-                  : products?.products
-              }
-              title={selectCategory}
-            />
+          {error ? (
+            <Alert severity="error" onClose={() => setError(null)}>
+              <AlertTitle>Error</AlertTitle>
+              {error}
+            </Alert>
+          ) : (
+            <>
+              {!selectedCategory && <AllCategoriesPieChart />}
+              {selectedCategory && !showProductsPie && (
+                <SelectedCategoryPieChart
+                  pieData={products}
+                  title={selectedCategory}
+                />
+              )}
+              {showProductsPie && (
+                <BarChart
+                  products={
+                    selectedProducts.length
+                      ? selectedProducts
+                      : products?.products
+                  }
+                  title={selectedCategory}
+                />
+              )}
+            </>
           )}
         </Grid>
       </Grid>
