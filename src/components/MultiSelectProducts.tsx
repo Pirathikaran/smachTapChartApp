@@ -38,7 +38,7 @@ const MultiSelect: React.FC<PropsType> = ({
   return (
     <>
       <FormControl variant="outlined" fullWidth>
-        <InputLabel id="multi-select-label">Select Product</InputLabel>
+        <InputLabel id="multi-select-label">Select Products</InputLabel>
         <Select
           labelId="multi-select-label"
           id="multi-select"

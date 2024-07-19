@@ -18,7 +18,6 @@ const fetchData = async <T>(
     const data: T = await response.json();
     return data;
   } catch (error) {
-    console.error("Fetch error:", error);
     throw error;
   }
 };
